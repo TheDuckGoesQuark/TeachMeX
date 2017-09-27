@@ -3,21 +3,27 @@
  */
 import React from 'react'
 import {Button, Thumbnail, Alert} from 'react-bootstrap'
+import 'bootstrap/dist/css/bootstrap.css';
+import 'bootstrap/dist/css/bootstrap-theme.css'
 import firebase from 'firebase'
 
-
-export default class Foo extends React.Component {
+export default class Doggos extends React.Component {
 
     constructor(props) {
         super(props);
         this.state = {
-            dogs: []
+            dogs: [],
+            view: 'add-new'
         }
     }
 
     addDogs(dogObjs) {
+        const noAddFunc = (self, key) => {
+            self.setState({hidden: true})
+        };
+        if(!dogObjs) {return;}
         let images = dogObjs.map((dogObj, index) => {
-            return <DogImage url={dogObj.url} key={index+this.state.dogs.length}/>
+            return <DogImage handleRemove={noAddFunc} url={dogObj.url} key={index+this.state.dogs.length} identifier={index+this.state.dogs.length}/>
         });
         this.setState({
             dogs: [...images, ...this.state.dogs]
@@ -38,16 +44,45 @@ export default class Foo extends React.Component {
         });
     }
 
+    handleViewChange() {
+        if (this.state.view == 'add-new') {
+            const alreadyAddedRemove = (self, ref) => {
+                firebase.database().ref('doggos/'+ref).remove();
+                self.setState({hidden: true})
+            };
+            let database = firebase.database();
+            database.ref('doggos/').once('value')
+                .then((snapshot) => {
+                    let doggos = [];
+                    snapshot.forEach((doggo) => {
+                        let key = doggo.ref.key;
+                        doggos.push(<DogImage handleRemove={alreadyAddedRemove} url={doggo.val().url} key={key} identifier={key} />)
+                    });
+                    this.setState({view: 'added', dogs: doggos});
+                });
+        }
+        else this.setState({view: 'add-new', dogs: []});
+    }
+
+
     render() {
         const wellStyles = {maxWidth: 400, margin: '10px auto 10px'};
         return (<div>
             <div className="well" style={wellStyles}>
-                <Button onClick={() => {this.handleClick()}}
+                {this.state.view == 'add-new' ? <Button onClick={() => {this.handleClick()}}
                         bsStyle="primary"
                         bsSize="large"
                         block
                 >
+
                     Get a dog
+                </Button> : <div></div>}
+                <Button onClick={() => {this.handleViewChange()}}
+                        bsStyle="primary"
+                        bsSize="large"
+                        block
+                >
+                    {this.state.view == 'add-new' ? "See Approved Doggos" : "Add More Doggos" }
                 </Button>
             </div>
             {this.state.dogs}
@@ -66,7 +101,7 @@ class DogImage extends React.Component {
     }
 
     handleRemove() {
-        this.setState({hidden: true})
+        this.props.handleRemove(this, this.props.identifier)
     }
 
     handleAdd() {
